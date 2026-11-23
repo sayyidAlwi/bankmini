@@ -56,11 +56,12 @@
             <table class="data-table">
                 <thead>
                     <tr>
+                        <th>Sheet</th>
                         <th>Baris</th>
-                        <th>Nama</th>
-                        <th>Kode</th>
-                        <th>Kelas</th>
-                        <th>No. HP</th>
+                        <th>NIS</th>
+                        <th>Customer</th>
+                        <th>Generation</th>
+                        <th>Study Program</th>
                         <th class="num">Saldo Awal</th>
                         <th>Status</th>
                         <th>Keterangan</th>
@@ -69,11 +70,12 @@
                 <tbody>
                     @foreach ($hasil['rows'] as $row)
                         <tr>
+                            <td>{{ $row['sheet'] }}</td>
                             <td>{{ $row['nomor'] }}</td>
+                            <td>{{ $row['no_rekening'] !== '' ? $row['no_rekening'] : '—' }}</td>
                             <td>{{ $row['nama'] !== '' ? $row['nama'] : '—' }}</td>
-                            <td>{{ $row['kode_nasabah'] ?? 'otomatis' }}</td>
-                            <td>{{ $row['kelas'] !== '' ? $row['kelas'] : '—' }}</td>
-                            <td>{{ $row['no_hp'] !== '' ? $row['no_hp'] : '—' }}</td>
+                            <td>{{ $row['angkatan'] !== '' ? $row['angkatan'] : '—' }}</td>
+                            <td>{{ $row['program_studi'] !== '' ? $row['program_studi'] : '—' }}</td>
                             <td class="num">Rp {{ $row['saldo_tampil'] }}</td>
                             <td>
                                 <span class="badge {{ $row['status'] === 'aktif' ? '' : 'badge--muted' }}">

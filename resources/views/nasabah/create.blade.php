@@ -10,7 +10,7 @@
             <div>
                 <h2 class="panel__title">Pendaftaran Nasabah</h2>
                 <p class="panel__subtitle">
-                    Kode nasabah dan nomor rekening dibuat otomatis setelah data disimpan.
+                    Isi NISN pada Account Number. Nomor rekening harus unik untuk setiap nasabah.
                 </p>
             </div>
         </div>

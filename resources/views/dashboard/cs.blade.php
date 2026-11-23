@@ -52,23 +52,23 @@
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>Kode</th>
-                            <th>Nama</th>
-                            <th>Kelas</th>
-                            <th>Rekening</th>
+                            <th>Account Number</th>
+                            <th>Customer</th>
+                            <th>Generation</th>
+                            <th>Study Program</th>
                         </tr>
                     </thead>
                     <tbody>
                         @forelse ($recentNasabah as $item)
                             <tr>
-                                <td>{{ $item->kode_nasabah }}</td>
-                                <td>{{ $item->nama }}</td>
-                                <td>{{ $item->kelas }}</td>
                                 <td>
                                     @foreach ($item->rekening as $rekening)
                                         {{ $rekening->no_rekening }}@if (! $loop->last), @endif
                                     @endforeach
                                 </td>
+                                <td>{{ $item->nama }}</td>
+                                <td>{{ $item->angkatan }}</td>
+                                <td>{{ $item->program_studi }}</td>
                             </tr>
                         @empty
                             <tr>

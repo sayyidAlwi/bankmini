@@ -9,7 +9,7 @@
         <div class="panel__header">
             <div>
                 <h2 class="panel__title">{{ $nasabah->nama }}</h2>
-                <p class="panel__subtitle">{{ $nasabah->kode_nasabah }} &middot; {{ $nasabah->kelas }}</p>
+                <p class="panel__subtitle">{{ $nasabah->angkatan }} &middot; {{ $nasabah->program_studi }}</p>
             </div>
         </div>
 

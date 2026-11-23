@@ -3,21 +3,29 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateNasabahRequest extends FormRequest
 {
     /**
      * Get the validation rules that apply to the request.
      *
-     * @return array<string, array<int, string>>
+     * @return array<string, array<int, mixed>>
      */
     public function rules(): array
     {
+        $rekening = $this->route('nasabah')?->rekening()->orderBy('id')->first();
+
         return [
+            'no_rekening' => [
+                'required',
+                'string',
+                'max:30',
+                Rule::unique('rekening', 'no_rekening')->ignore($rekening?->id),
+            ],
             'nama' => ['required', 'string', 'max:100'],
-            'kelas' => ['required', 'string', 'max:30'],
-            'alamat' => ['required', 'string', 'max:500'],
-            'no_hp' => ['required', 'string', 'max:20'],
+            'angkatan' => ['required', 'string', 'max:30'],
+            'program_studi' => ['required', 'string', 'max:100'],
         ];
     }
 
@@ -29,10 +37,10 @@ class UpdateNasabahRequest extends FormRequest
     public function attributes(): array
     {
         return [
-            'nama' => 'nama nasabah',
-            'kelas' => 'kelas',
-            'alamat' => 'alamat',
-            'no_hp' => 'nomor HP',
+            'no_rekening' => 'NISN / nomor rekening',
+            'nama' => 'nama customer',
+            'angkatan' => 'generation (angkatan)',
+            'program_studi' => 'program studi',
         ];
     }
 }

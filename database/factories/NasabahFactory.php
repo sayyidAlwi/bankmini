@@ -20,11 +20,14 @@ class NasabahFactory extends Factory
     public function definition(): array
     {
         return [
-            'kode_nasabah' => 'NSB'.fake()->unique()->numerify('#####'),
             'nama' => fake()->name(),
-            'kelas' => 'X-'.fake()->numberBetween(1, 9),
-            'alamat' => fake()->address(),
-            'no_hp' => fake()->numerify('08##########'),
+            'angkatan' => (string) fake()->numberBetween(2018, 2026),
+            'program_studi' => fake()->randomElement([
+                'Teknik Informatika',
+                'Akuntansi',
+                'Manajemen',
+                'Sistem Informasi',
+            ]),
         ];
     }
 }

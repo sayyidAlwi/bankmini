@@ -17,6 +17,11 @@
         <span class="hero__badge">Teller</span>
     </section>
 
+    @include('shift.partials.status', [
+        'shiftMingguIni' => $shiftMingguIni,
+        'shiftAktif' => $shiftAktif,
+    ])
+
     <div class="stat-grid">
         <x-stat-card
             label="Transaksi Hari Ini"
@@ -78,6 +83,13 @@
                         <span>
                             <span class="quick-card__title">Data Nasabah</span>
                             <span class="quick-card__desc">Lihat saldo dan rekening nasabah.</span>
+                        </span>
+                        <span class="quick-card__arrow" aria-hidden="true">&rarr;</span>
+                    </a>
+                    <a class="quick-card" href="{{ route('shift.saya') }}">
+                        <span>
+                            <span class="quick-card__title">Shift Saya</span>
+                            <span class="quick-card__desc">Lihat riwayat dan status shift mingguan.</span>
                         </span>
                         <span class="quick-card__arrow" aria-hidden="true">&rarr;</span>
                     </a>

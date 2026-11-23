@@ -48,7 +48,7 @@
                                         @selected((string) old('rekening_id', $selected) === (string) $item->id)
                                     >
                                         {{ $item->no_rekening }} &mdash; {{ $item->nasabah->nama }}
-                                        ({{ $item->nasabah->kelas }}) &mdash;
+                                        ({{ $item->nasabah->angkatan }} &middot; {{ $item->nasabah->program_studi }}) &mdash;
                                         saldo Rp {{ number_format((float) $item->saldo, 0, ',', '.') }}
                                     </option>
                                 @endforeach

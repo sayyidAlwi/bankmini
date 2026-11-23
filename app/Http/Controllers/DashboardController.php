@@ -9,12 +9,16 @@ use App\Models\Rekening;
 use App\Models\Transaksi;
 use App\Models\User;
 use App\Services\LaporanService;
+use App\Services\ShiftService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
-    public function __construct(private readonly LaporanService $laporan) {}
+    public function __construct(
+        private readonly LaporanService $laporan,
+        private readonly ShiftService $shiftService,
+    ) {}
 
     public function admin(): View
     {
@@ -35,7 +39,11 @@ class DashboardController extends Controller
 
     public function teller(): View
     {
-        return view('dashboard.teller', $this->ringkasan());
+        return view('dashboard.teller', [
+            ...$this->ringkasan(),
+            'shiftMingguIni' => $this->shiftService->mingguIni(),
+            'shiftAktif' => $this->shiftService->shiftAktif(auth()->user()),
+        ]);
     }
 
     public function cs(): View

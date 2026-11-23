@@ -21,26 +21,41 @@ class ImporNasabahService
     public const MAKS_BARIS = 2000;
 
     /**
-     * Column aliases accepted in the header row.
+     * Jumlah baris awal yang diperiksa untuk menemukan baris judul kolom.
+     */
+    private const MAKS_BARIS_JUDUL = 25;
+
+    /**
+     * Kode program studi pada nama sheet beserta nama lengkap yang disimpan.
+     *
+     * @var array<string, string>
+     */
+    public const PRODI = [
+        'AKL' => 'Akuntansi',
+        'MP' => 'Manajemen Perkantoran',
+        'BD' => 'Bisnis Digital',
+        'DKV' => 'Desain Komunikasi Visual',
+    ];
+
+    /**
+     * Alias kolom yang diterima pada baris judul.
      *
      * @var array<string, array<int, string>>
      */
     private const ALIAS = [
-        'nama' => ['nama', 'nama nasabah', 'nama siswa', 'name'],
-        'kode_nasabah' => ['kode', 'kode nasabah', 'kode siswa', 'nis', 'nisn'],
-        'kelas' => ['kelas', 'rombel', 'class'],
-        'alamat' => ['alamat', 'address'],
-        'no_hp' => ['no hp', 'nomor hp', 'hp', 'telepon', 'no telepon', 'telp', 'wa', 'whatsapp', 'no wa', 'nomor wa'],
-        'saldo_awal' => ['saldo', 'saldo awal', 'saldo awal rp', 'tabungan', 'simpanan', 'saldo tabungan', 'saldo simpanan'],
+        'no' => ['no', 'nomor', 'no urut', 'nomor urut'],
+        'no_rekening' => ['nis', 'nisn', 'no rekening', 'nomor rekening', 'norek', 'account number', 'no account'],
+        'nama' => ['nama', 'nama nasabah', 'nama siswa', 'customer', 'name'],
+        'saldo_awal' => ['saldo awal', 'saldo', 'saldo awal rp', 'tabungan', 'simpanan', 'saldo tabungan', 'saldo simpanan'],
         'status' => ['status', 'status rekening'],
     ];
 
     /**
-     * Columns that must exist in the header row.
+     * Kolom yang harus ada pada baris judul.
      *
      * @var array<int, string>
      */
-    private const WAJIB = ['nama', 'kelas', 'alamat', 'no_hp', 'saldo_awal'];
+    private const WAJIB = ['no_rekening', 'nama', 'saldo_awal'];
 
     public function __construct(private readonly TransaksiService $transaksi) {}
 
@@ -65,7 +80,7 @@ class ImporNasabahService
     }
 
     /**
-     * Build a downloadable XLSX template.
+     * Build a downloadable XLSX template with one sheet per study program.
      */
     public function template(): string
     {
@@ -77,33 +92,44 @@ class ImporNasabahService
 
         $writer = new Writer;
         $writer->openToFile($path);
-        $writer->addRow(Row::fromValues([
-            'kode_nasabah',
-            'nama',
-            'kelas',
-            'alamat',
-            'no_hp',
-            'saldo_awal',
-            'status',
-        ]));
-        $writer->addRow(Row::fromValues([
-            '',
-            'Budi Santoso',
-            'X-1',
-            'Jl. Merdeka No. 1',
-            '081234567890',
-            50000,
-            'aktif',
-        ]));
-        $writer->addRow(Row::fromValues([
-            '',
-            'Siti Aminah',
-            'XI-2',
-            'Jl. Sudirman No. 5',
-            '081298765432',
-            125000.5,
-            'aktif',
-        ]));
+
+        $contoh = [
+            'AKL 2025' => 'Contoh Akuntansi - hapus baris ini',
+            'MP 2025' => 'Contoh Manajemen Perkantoran - hapus baris ini',
+            'BD 2025' => 'Contoh Bisnis Digital - hapus baris ini',
+            'DKV 2025' => 'Contoh Desain Komunikasi Visual - hapus baris ini',
+        ];
+
+        $pertama = true;
+
+        foreach ($contoh as $namaSheet => $namaContoh) {
+            $sheet = $pertama
+                ? $writer->getCurrentSheet()
+                : $writer->addNewSheetAndMakeItCurrent();
+
+            $pertama = false;
+
+            $sheet->setName($namaSheet);
+            $sheet->setColumnWidth(6, 1);
+            $sheet->setColumnWidth(12, 2);
+            $sheet->setColumnWidth(42, 3);
+            $sheet->setColumnWidth(18, 4);
+
+            $writer->addRow(Row::fromValues([
+                'NO',
+                'NIS',
+                'NAMA',
+                'SALDO AWAL',
+            ]));
+
+            $writer->addRow(Row::fromValues([
+                1,
+                10001,
+                $namaContoh,
+                0,
+            ]));
+        }
+
         $writer->close();
 
         return $path;
@@ -112,15 +138,19 @@ class ImporNasabahService
     /**
      * Read and validate the uploaded XLSX file.
      *
+     * Setiap sheet mewakili satu program studi. Nama sheet memuat kode prodi
+     * dan angkatan, contoh: "AKL 2025". Bila nama sheet tidak memuat angka
+     * tahun, angkatan diambil dari nama file asli (contoh: "ANGKATAN 2025.xlsx").
+     *
      * @return array{
      *     error: string|null,
      *     rows: array<int, array{
+     *         sheet: string,
      *         nomor: int,
+     *         no_rekening: string,
      *         nama: string,
-     *         kode_nasabah: string|null,
-     *         kelas: string,
-     *         alamat: string,
-     *         no_hp: string,
+     *         angkatan: string,
+     *         program_studi: string,
      *         saldo: string,
      *         saldo_tampil: string,
      *         status: string,
@@ -132,7 +162,7 @@ class ImporNasabahService
      *     ada_kesalahan: bool
      * }
      */
-    public function parse(string $path): array
+    public function parse(string $path, ?string $namaFile = null): array
     {
         $hasil = [
             'error' => null,
@@ -146,16 +176,23 @@ class ImporNasabahService
             return [...$hasil, 'error' => 'File impor tidak ditemukan. Silakan unggah ulang.'];
         }
 
+        $angkatanBerkas = $this->cariAngkatan((string) $namaFile, false);
+
         $reader = new Reader;
 
         try {
             $reader->open($path);
 
-            $header = null;
-            $nomor = 0;
             $terpakai = [];
+            $adaHeader = false;
 
             foreach ($reader->getSheetIterator() as $sheet) {
+                $namaSheet = trim($sheet->getName());
+                $nomor = 0;
+                $header = null;
+                $konteks = null;
+                $judul = [];
+
                 foreach ($sheet->getRowIterator() as $row) {
                     $nomor++;
 
@@ -169,14 +206,39 @@ class ImporNasabahService
                             continue;
                         }
 
-                        $header = $this->petakanHeader($cells);
+                        $peta = $this->petakanHeader($cells);
 
-                        if ($header['hilang'] !== []) {
+                        // Baris judul boleh didahului baris keterangan (tahun, nama prodi, dll).
+                        if ($peta['hilang'] !== []) {
+                            $judul[] = implode(' | ', array_filter(
+                                array_map(fn (mixed $nilai) => $this->teks($nilai), $cells),
+                                fn (string $nilai) => $nilai !== '',
+                            ));
+
+                            if (count($judul) < self::MAKS_BARIS_JUDUL) {
+                                continue;
+                            }
+
                             return [
                                 ...$hasil,
-                                'error' => 'Kolom wajib tidak ditemukan: '.implode(', ', $header['hilang']).'. Unduh template untuk melihat format yang benar.',
+                                'error' => $this->pesanJudulTidakDitemukan($namaSheet, $judul),
                             ];
                         }
+
+                        $header = $peta;
+                        $konteks = $this->parseNamaSheet(
+                            $namaSheet,
+                            $this->cariAngkatan(implode(' ', $judul)) ?? $angkatanBerkas,
+                        );
+
+                        if ($konteks === null) {
+                            return [
+                                ...$hasil,
+                                'error' => "Nama sheet '{$namaSheet}' belum memuat program studi dan angkatan. Gunakan format kode prodi diikuti tahun, contoh: AKL 2025.",
+                            ];
+                        }
+
+                        $adaHeader = true;
 
                         continue;
                     }
@@ -193,11 +255,9 @@ class ImporNasabahService
                     }
 
                     $data = [
+                        'no' => '',
+                        'no_rekening' => '',
                         'nama' => '',
-                        'kode_nasabah' => '',
-                        'kelas' => '',
-                        'alamat' => '',
-                        'no_hp' => '',
                         'saldo_awal' => '',
                         'status' => '',
                     ];
@@ -206,8 +266,13 @@ class ImporNasabahService
                         $data[$kolom] = $this->teks($cells[$index] ?? null);
                     }
 
+                    // Abaikan baris yang hanya berisi nomor urut.
+                    if ($data['no_rekening'] === '' && $data['nama'] === '' && $data['saldo_awal'] === '') {
+                        continue;
+                    }
+
                     $saldo = $this->parseSaldo($cells[$header['map']['saldo_awal']] ?? null);
-                    $status = $this->parseStatus($data['status'] ?? '');
+                    $status = $this->parseStatus($data['status']);
 
                     $errors = $this->validasiBaris(
                         $data,
@@ -216,15 +281,15 @@ class ImporNasabahService
                         $terpakai,
                     );
 
-                    $kode = $data['kode_nasabah'] !== '' ? $data['kode_nasabah'] : null;
+                    $noRekening = $data['no_rekening'];
 
                     $hasil['rows'][] = [
+                        'sheet' => $namaSheet,
                         'nomor' => $nomor,
+                        'no_rekening' => $noRekening,
                         'nama' => $data['nama'],
-                        'kode_nasabah' => $kode,
-                        'kelas' => $data['kelas'],
-                        'alamat' => $data['alamat'],
-                        'no_hp' => $data['no_hp'],
+                        'angkatan' => $konteks['angkatan'],
+                        'program_studi' => $konteks['program_studi'],
                         'saldo' => $saldo ?? '0.00',
                         'saldo_tampil' => $saldo !== null
                             ? number_format((float) $saldo, 2, ',', '.')
@@ -238,8 +303,8 @@ class ImporNasabahService
                         $hasil['ada_kesalahan'] = true;
                     }
 
-                    if ($kode !== null) {
-                        $terpakai[] = $kode;
+                    if ($noRekening !== '') {
+                        $terpakai[] = $noRekening;
                     }
 
                     if ($saldo !== null) {
@@ -247,11 +312,15 @@ class ImporNasabahService
                     }
                 }
 
-                // Only the first sheet is read.
-                break;
+                if ($header === null && $judul !== []) {
+                    return [
+                        ...$hasil,
+                        'error' => $this->pesanJudulTidakDitemukan($namaSheet, $judul),
+                    ];
+                }
             }
 
-            if ($header === null) {
+            if (! $adaHeader) {
                 $hasil['error'] = 'File kosong. Isi file mengikuti template yang disediakan.';
             } elseif ($hasil['rows'] === []) {
                 $hasil['error'] = 'Tidak ada baris data yang bisa diimpor.';
@@ -276,7 +345,7 @@ class ImporNasabahService
     /**
      * Store the imported nasabah, rekening, and opening balance journals.
      *
-     * @param  array<int, array{nama: string, kode_nasabah: string|null, kelas: string, alamat: string, no_hp: string, saldo: string, status: string, errors: array<int, string>}>  $rows
+     * @param  array<int, array{no_rekening: string, nama: string, angkatan: string, program_studi: string, saldo: string, status: string, errors: array<int, string>}>  $rows
      * @return array{nasabah: int, rekening: int, total: string}
      */
     public function impor(array $rows, User $admin, string $tanggal): array
@@ -292,32 +361,18 @@ class ImporNasabahService
                     ]);
                 }
 
-                $kode = $row['kode_nasabah'];
-
                 $nasabah = Nasabah::create([
-                    'kode_nasabah' => $kode ?? 'TMP'.Str::upper(Str::random(10)),
                     'nama' => $row['nama'],
-                    'kelas' => $row['kelas'],
-                    'alamat' => $row['alamat'],
-                    'no_hp' => $row['no_hp'],
+                    'angkatan' => $row['angkatan'],
+                    'program_studi' => $row['program_studi'],
                 ]);
-
-                if ($kode === null) {
-                    $nasabah->update([
-                        'kode_nasabah' => 'NSB'.str_pad((string) $nasabah->getKey(), 5, '0', STR_PAD_LEFT),
-                    ]);
-                }
 
                 // Open the account as active first so the opening journal can be
                 // recorded even for accounts that are inactive today.
                 $rekening = $nasabah->rekening()->create([
-                    'no_rekening' => 'TMP'.Str::upper(Str::random(10)),
+                    'no_rekening' => $row['no_rekening'],
                     'saldo' => '0.00',
                     'status' => Rekening::STATUS_AKTIF,
-                ]);
-
-                $rekening->update([
-                    'no_rekening' => 'REK'.str_pad((string) $rekening->getKey(), 5, '0', STR_PAD_LEFT),
                 ]);
 
                 if (bccomp($row['saldo'], '0', 2) === 1) {
@@ -380,6 +435,79 @@ class ImporNasabahService
     }
 
     /**
+     * @param  array<int, string>  $judul
+     */
+    private function pesanJudulTidakDitemukan(string $namaSheet, array $judul): string
+    {
+        $contoh = implode(' / ', array_slice($judul, 0, 3));
+
+        return "Baris judul kolom tidak ditemukan pada sheet '{$namaSheet}'. Pastikan ada satu baris berisi NO, NIS, NAMA, dan SALDO AWAL. Baris yang terbaca: {$contoh}.";
+    }
+
+    /**
+     * Ambil program studi dan angkatan dari nama sheet, contoh "AKL 2025".
+     *
+     * @return array{angkatan: string, program_studi: string}|null
+     */
+    private function parseNamaSheet(string $nama, ?string $angkatanBerkas = null): ?array
+    {
+        $sisa = trim($nama);
+        $dariSheet = $this->cariAngkatan($sisa);
+        $angkatan = $dariSheet ?? $angkatanBerkas;
+
+        if ($angkatan === null) {
+            return null;
+        }
+
+        if ($dariSheet !== null) {
+            $sisa = preg_replace('/(?<!\d)'.preg_quote($angkatan, '/').'(?!\d)/', ' ', $sisa, 1) ?? '';
+        }
+
+        $sisa = trim(preg_replace('/[\s\-_\/]+/u', ' ', $sisa) ?? '');
+
+        if ($sisa === '' || preg_match('/^sheet\s*\d*$/i', $sisa) === 1) {
+            return null;
+        }
+
+        $kunci = $this->normalisasi($sisa);
+
+        $programStudi = null;
+
+        foreach (self::PRODI as $kode => $label) {
+            if ($kunci === $this->normalisasi($kode) || $kunci === $this->normalisasi($label)) {
+                $programStudi = $label;
+
+                break;
+            }
+        }
+
+        return [
+            'angkatan' => $angkatan,
+            'program_studi' => $programStudi ?? $sisa,
+        ];
+    }
+
+    /**
+     * Cari angka tahun (2025) atau nomor angkatan (41) pada teks.
+     */
+    private function cariAngkatan(string $teks, bool $izinkanAngkaPendek = true): ?string
+    {
+        if (preg_match('/(?<!\d)((?:19|20)\d{2})(?!\d)/', $teks, $cocok) === 1) {
+            return $cocok[1];
+        }
+
+        if (preg_match('/(?:angkatan|tahun|generasi|generation)\D{0,10}(\d{1,4})(?!\d)/i', $teks, $cocok) === 1) {
+            return $cocok[1];
+        }
+
+        if ($izinkanAngkaPendek && preg_match('/(?<!\d)(\d{1,4})(?!\d)/', $teks, $cocok) === 1) {
+            return $cocok[1];
+        }
+
+        return null;
+    }
+
+    /**
      * @param  array<string, string>  $data
      * @param  array<int, string>  $terpakai
      * @return array<int, string>
@@ -388,28 +516,20 @@ class ImporNasabahService
     {
         $errors = [];
 
+        if ($data['no_rekening'] === '') {
+            $errors[] = 'NIS (account number) wajib diisi.';
+        } elseif (mb_strlen($data['no_rekening']) > 30) {
+            $errors[] = 'NIS (account number) maksimal 30 karakter.';
+        } elseif (in_array($data['no_rekening'], $terpakai, true)) {
+            $errors[] = "NIS {$data['no_rekening']} muncul lebih dari sekali di file.";
+        } elseif (Rekening::query()->where('no_rekening', $data['no_rekening'])->exists()) {
+            $errors[] = "NIS {$data['no_rekening']} sudah dipakai di database.";
+        }
+
         if ($data['nama'] === '') {
             $errors[] = 'Nama wajib diisi.';
         } elseif (mb_strlen($data['nama']) > 100) {
             $errors[] = 'Nama maksimal 100 karakter.';
-        }
-
-        if ($data['kelas'] === '') {
-            $errors[] = 'Kelas wajib diisi.';
-        } elseif (mb_strlen($data['kelas']) > 30) {
-            $errors[] = 'Kelas maksimal 30 karakter.';
-        }
-
-        if ($data['alamat'] === '') {
-            $errors[] = 'Alamat wajib diisi.';
-        } elseif (mb_strlen($data['alamat']) > 500) {
-            $errors[] = 'Alamat maksimal 500 karakter.';
-        }
-
-        if ($data['no_hp'] === '') {
-            $errors[] = 'Nomor HP wajib diisi.';
-        } elseif (mb_strlen($data['no_hp']) > 20) {
-            $errors[] = 'Nomor HP maksimal 20 karakter.';
         }
 
         if ($saldo === null) {
@@ -420,27 +540,13 @@ class ImporNasabahService
             $errors[] = 'Status harus aktif atau nonaktif.';
         }
 
-        $kode = $data['kode_nasabah'];
-
-        if ($kode !== '') {
-            if (mb_strlen($kode) > 30) {
-                $errors[] = 'Kode nasabah maksimal 30 karakter.';
-            }
-
-            if (in_array($kode, $terpakai, true)) {
-                $errors[] = "Kode nasabah {$kode} muncul lebih dari sekali di file.";
-            } elseif (Nasabah::query()->where('kode_nasabah', $kode)->exists()) {
-                $errors[] = "Kode nasabah {$kode} sudah dipakai di database.";
-            }
-        }
-
         return $errors;
     }
 
     private function parseSaldo(mixed $value): ?string
     {
         if ($value === null || $value === '') {
-            return null;
+            return '0.00';
         }
 
         if (is_int($value) || is_float($value)) {
@@ -451,7 +557,7 @@ class ImporNasabahService
         }
 
         if ($string === '') {
-            return null;
+            return '0.00';
         }
 
         $negatif = str_contains($string, '-');

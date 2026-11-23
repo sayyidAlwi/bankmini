@@ -51,7 +51,7 @@
                     <tr>
                         <th>No. Rekening</th>
                         <th>Nasabah</th>
-                        <th>Kelas</th>
+                        <th>Generation</th>
                         <th>Status</th>
                         <th class="num">Saldo</th>
                     </tr>
@@ -63,9 +63,9 @@
                             <td>
                                 {{ $item->nasabah->nama }}
                                 <br>
-                                <span class="muted">{{ $item->nasabah->kode_nasabah }}</span>
+                                <span class="muted">{{ $item->nasabah->program_studi }}</span>
                             </td>
-                            <td>{{ $item->nasabah->kelas }}</td>
+                            <td>{{ $item->nasabah->angkatan }}</td>
                             <td>
                                 <span class="badge {{ $item->isAktif() ? '' : 'badge--muted' }}">
                                     {{ ucfirst($item->status) }}

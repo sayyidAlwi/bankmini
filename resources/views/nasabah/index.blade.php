@@ -9,7 +9,7 @@
         <div class="panel__header">
             <div>
                 <h2 class="panel__title">Nasabah BankMini</h2>
-                <p class="panel__subtitle">Nasabah, rekening, dan saldo simpanan.</p>
+                <p class="panel__subtitle">Account number, customer, generation, dan study program.</p>
             </div>
 
             @if (auth()->user()->hasRole(\App\Models\User::ROLE_ADMIN, \App\Models\User::ROLE_CS))
@@ -27,7 +27,7 @@
                         type="search"
                         class="input"
                         value="{{ $q }}"
-                        placeholder="Nama, kode nasabah, kelas, atau nomor rekening"
+                        placeholder="Nama, NISN/account number, angkatan, atau program studi"
                     >
                 </div>
                 <button type="submit" class="btn">Cari</button>
@@ -41,11 +41,10 @@
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th>Kode</th>
-                        <th>Nama</th>
-                        <th>Kelas</th>
-                        <th>No. HP</th>
-                        <th>Rekening</th>
+                        <th>Account Number</th>
+                        <th>Customer</th>
+                        <th>Generation</th>
+                        <th>Study Program</th>
                         <th class="num">Saldo</th>
                         <th></th>
                     </tr>
@@ -53,10 +52,6 @@
                 <tbody>
                     @forelse ($nasabah as $item)
                         <tr>
-                            <td>{{ $item->kode_nasabah }}</td>
-                            <td>{{ $item->nama }}</td>
-                            <td>{{ $item->kelas }}</td>
-                            <td>{{ $item->no_hp }}</td>
                             <td>
                                 @forelse ($item->rekening as $rekening)
                                     {{ $rekening->no_rekening }}
@@ -70,6 +65,9 @@
                                     <span class="muted">Belum ada rekening</span>
                                 @endforelse
                             </td>
+                            <td>{{ $item->nama }}</td>
+                            <td>{{ $item->angkatan }}</td>
+                            <td>{{ $item->program_studi }}</td>
                             <td class="num">
                                 <x-rupiah :value="$item->rekening->sum('saldo')" />
                             </td>
@@ -82,7 +80,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="empty-row">Belum ada nasabah yang cocok.</td>
+                            <td colspan="6" class="empty-row">Belum ada nasabah yang cocok.</td>
                         </tr>
                     @endforelse
                 </tbody>

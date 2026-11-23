@@ -5,6 +5,7 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ImporNasabahController;
 use App\Http\Controllers\LaporanController;
 use App\Http\Controllers\NasabahController;
+use App\Http\Controllers\ShiftController;
 use App\Http\Controllers\TransaksiController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Auth;
@@ -95,6 +96,31 @@ Route::middleware('auth')->group(function () {
     Route::middleware('role:admin,teller')->group(function () {
         Route::get('transaksi/create', [TransaksiController::class, 'create'])->name('transaksi.create');
         Route::post('transaksi', [TransaksiController::class, 'store'])->name('transaksi.store');
+    });
+
+    // Shift report: admin and supervisor may review every weekly shift.
+    Route::middleware('role:admin,supervisor')->group(function () {
+        Route::get('shift', [ShiftController::class, 'index'])->name('shift.index');
+        Route::get('shift/{shift}', [ShiftController::class, 'show'])
+            ->whereNumber('shift')
+            ->name('shift.show');
+    });
+
+    // Teller starts a weekly shift by typing their own name.
+    Route::middleware('role:teller')->group(function () {
+        Route::get('shift-saya', [ShiftController::class, 'saya'])->name('shift.saya');
+        Route::post('shift-saya/mulai', [ShiftController::class, 'mulai'])->name('shift.mulai');
+        Route::post('shift-saya/selesai', [ShiftController::class, 'selesai'])->name('shift.selesai');
+    });
+
+    // Admin may close a forgotten shift or remove a record.
+    Route::middleware('role:admin')->group(function () {
+        Route::post('shift/{shift}/tutup', [ShiftController::class, 'tutup'])
+            ->whereNumber('shift')
+            ->name('shift.tutup');
+        Route::delete('shift/{shift}', [ShiftController::class, 'destroy'])
+            ->whereNumber('shift')
+            ->name('shift.destroy');
     });
 
     // Financial reports (admin, supervisor, accounting)

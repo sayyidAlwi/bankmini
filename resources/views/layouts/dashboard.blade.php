@@ -1085,6 +1085,12 @@
                         </span>
                         Transaksi
                     </a>
+                    <a class="nav__link @if (request()->routeIs('shift.index') || request()->routeIs('shift.show')) is-active @endif" href="{{ route('shift.index') }}">
+                        <span class="nav__icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4"/><path d="M16 3v4"/><path d="M3 10h18"/><path d="M12 14v3l2 1"/></svg>
+                        </span>
+                        Laporan Shift
+                    </a>
 
                     <p class="nav__label">Laporan</p>
                     @include('partials.nav-laporan')
@@ -1120,6 +1126,12 @@
 
                     <p class="nav__label">Laporan</p>
                     @include('partials.nav-laporan')
+                    <a class="nav__link @if (request()->routeIs('shift.index') || request()->routeIs('shift.show')) is-active @endif" href="{{ route('shift.index') }}">
+                        <span class="nav__icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4"/><path d="M16 3v4"/><path d="M3 10h18"/><path d="M12 14v3l2 1"/></svg>
+                        </span>
+                        Laporan Shift
+                    </a>
                 @elseif ($user?->hasRole(\App\Models\User::ROLE_TELLER))
                     <a class="nav__link @if (request()->routeIs('teller.dashboard')) is-active @endif" href="{{ route('teller.dashboard') }}">
                         <span class="nav__icon" aria-hidden="true">
@@ -1146,6 +1158,12 @@
                             <svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 8.5a2.8 2.8 0 1 1 0 5.6"/><path d="M17 20a4.8 4.8 0 0 0-2-3.8"/></svg>
                         </span>
                         Data Nasabah
+                    </a>
+                    <a class="nav__link @if (request()->routeIs('shift.saya') || request()->routeIs('shift.mulai') || request()->routeIs('shift.selesai')) is-active @endif" href="{{ route('shift.saya') }}">
+                        <span class="nav__icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                        </span>
+                        Shift Saya
                     </a>
                 @elseif ($user?->hasRole(\App\Models\User::ROLE_CS))
                     <a class="nav__link @if (request()->routeIs('cs.dashboard')) is-active @endif" href="{{ route('cs.dashboard') }}">
@@ -1204,7 +1222,12 @@
                     <h1 class="topbar__title">@yield('page-title', 'Dashboard')</h1>
                 </div>
 
-                <div class="topbar__meta">{{ now()->locale('id')->translatedFormat('l, d F Y') }}</div>
+                <div class="topbar__meta">
+                    {{ now()->locale('id')->translatedFormat('l, d F Y') }}
+                    @if (! empty($shiftMingguIni))
+                        &middot; Petugas: {{ $shiftMingguIni->nama }}
+                    @endif
+                </div>
             </header>
 
             <main class="content">

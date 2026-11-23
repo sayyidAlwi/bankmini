@@ -20,58 +20,54 @@ class NasabahTest extends TestCase
         $this->seed(AkunSeeder::class);
     }
 
-    public function test_cs_can_register_a_nasabah_with_generated_codes(): void
+    public function test_cs_can_register_a_nasabah_with_nisn_as_account_number(): void
     {
         $cs = User::factory()->create(['role' => User::ROLE_CS]);
 
         $this->actingAs($cs)
             ->post(route('nasabah.store'), [
-                'nama' => 'Budi Santoso',
-                'kelas' => 'X-1',
-                'alamat' => 'Jl. Merdeka No. 1',
-                'no_hp' => '081234567890',
+                'no_rekening' => '10435',
+                'nama' => 'Azkia Renatha',
+                'angkatan' => '41',
+                'program_studi' => 'Teknik Informatika',
             ])
             ->assertSessionHasNoErrors();
 
         $nasabah = Nasabah::query()->sole();
 
-        // Codes follow the record id, which is portable across database engines.
-        $this->assertSame('NSB'.str_pad((string) $nasabah->id, 5, '0', STR_PAD_LEFT), $nasabah->kode_nasabah);
-        $this->assertSame('Budi Santoso', $nasabah->nama);
+        $this->assertSame('Azkia Renatha', $nasabah->nama);
+        $this->assertSame('41', $nasabah->angkatan);
+        $this->assertSame('Teknik Informatika', $nasabah->program_studi);
 
         $rekening = $nasabah->rekening()->sole();
 
-        $this->assertSame('REK'.str_pad((string) $rekening->id, 5, '0', STR_PAD_LEFT), $rekening->no_rekening);
+        $this->assertSame('10435', $rekening->no_rekening);
         $this->assertSame(Rekening::STATUS_AKTIF, $rekening->status);
         $this->assertSame('0.00', $rekening->saldo);
     }
 
-    public function test_codes_are_sequential_for_each_new_nasabah(): void
+    public function test_account_number_must_be_unique(): void
     {
         $cs = User::factory()->create(['role' => User::ROLE_CS]);
 
-        foreach (['Nasabah A', 'Nasabah B'] as $nama) {
-            $this->actingAs($cs)->post(route('nasabah.store'), [
-                'nama' => $nama,
-                'kelas' => 'XI-2',
-                'alamat' => 'Jl. Sudirman',
-                'no_hp' => '081200000000',
-            ])->assertSessionHasNoErrors();
-        }
+        $this->actingAs($cs)->post(route('nasabah.store'), [
+            'no_rekening' => '10435',
+            'nama' => 'Azkia Renatha',
+            'angkatan' => '41',
+            'program_studi' => 'Teknik Informatika',
+        ])->assertSessionHasNoErrors();
 
-        $nasabah = Nasabah::query()->orderBy('id')->get();
-        $rekening = Rekening::query()->orderBy('id')->get();
+        $this->actingAs($cs)
+            ->post(route('nasabah.store'), [
+                'no_rekening' => '10435',
+                'nama' => 'Nasabah Lain',
+                'angkatan' => '42',
+                'program_studi' => 'Akuntansi',
+            ])
+            ->assertSessionHasErrors('no_rekening');
 
-        $this->assertCount(2, $nasabah);
-        $this->assertCount(2, $rekening);
-
-        foreach ($nasabah as $item) {
-            $this->assertSame('NSB'.str_pad((string) $item->id, 5, '0', STR_PAD_LEFT), $item->kode_nasabah);
-        }
-
-        foreach ($rekening as $item) {
-            $this->assertSame('REK'.str_pad((string) $item->id, 5, '0', STR_PAD_LEFT), $item->no_rekening);
-        }
+        $this->assertSame(1, Nasabah::query()->count());
+        $this->assertSame(1, Rekening::query()->count());
     }
 
     public function test_nasabah_registration_requires_valid_data(): void
@@ -80,12 +76,12 @@ class NasabahTest extends TestCase
 
         $this->actingAs($cs)
             ->post(route('nasabah.store'), [
+                'no_rekening' => '',
                 'nama' => '',
-                'kelas' => '',
-                'alamat' => '',
-                'no_hp' => '',
+                'angkatan' => '',
+                'program_studi' => '',
             ])
-            ->assertSessionHasErrors(['nama', 'kelas', 'alamat', 'no_hp']);
+            ->assertSessionHasErrors(['no_rekening', 'nama', 'angkatan', 'program_studi']);
 
         $this->assertSame(0, Nasabah::query()->count());
         $this->assertSame(0, Rekening::query()->count());
@@ -94,14 +90,22 @@ class NasabahTest extends TestCase
     public function test_cs_can_update_nasabah_data(): void
     {
         $cs = User::factory()->create(['role' => User::ROLE_CS]);
-        $nasabah = Nasabah::factory()->create(['kelas' => 'X-1']);
+        $nasabah = Nasabah::factory()->create([
+            'angkatan' => '41',
+            'program_studi' => 'Teknik Informatika',
+        ]);
+        $nasabah->rekening()->create([
+            'no_rekening' => '10435',
+            'saldo' => '0.00',
+            'status' => Rekening::STATUS_AKTIF,
+        ]);
 
         $this->actingAs($cs)
             ->put(route('nasabah.update', $nasabah), [
+                'no_rekening' => '10436',
                 'nama' => 'Nama Baru',
-                'kelas' => 'XII-3',
-                'alamat' => 'Jl. Baru No. 9',
-                'no_hp' => '089999999999',
+                'angkatan' => '42',
+                'program_studi' => 'Akuntansi',
             ])
             ->assertRedirect(route('nasabah.show', $nasabah))
             ->assertSessionHasNoErrors();
@@ -109,8 +113,9 @@ class NasabahTest extends TestCase
         $nasabah->refresh();
 
         $this->assertSame('Nama Baru', $nasabah->nama);
-        $this->assertSame('XII-3', $nasabah->kelas);
-        $this->assertSame('Jl. Baru No. 9', $nasabah->alamat);
+        $this->assertSame('42', $nasabah->angkatan);
+        $this->assertSame('Akuntansi', $nasabah->program_studi);
+        $this->assertSame('10436', $nasabah->rekening()->sole()->no_rekening);
     }
 
     public function test_teller_can_view_nasabah_but_cannot_modify_them(): void
@@ -124,19 +129,19 @@ class NasabahTest extends TestCase
         $this->actingAs($teller)->get(route('nasabah.create'))->assertForbidden();
         $this->actingAs($teller)
             ->post(route('nasabah.store'), [
+                'no_rekening' => '99999',
                 'nama' => 'Tidak Boleh',
-                'kelas' => 'X-1',
-                'alamat' => 'Jl. Test',
-                'no_hp' => '0812',
+                'angkatan' => '41',
+                'program_studi' => 'Akuntansi',
             ])
             ->assertForbidden();
         $this->actingAs($teller)->get(route('nasabah.edit', $nasabah))->assertForbidden();
         $this->actingAs($teller)
             ->put(route('nasabah.update', $nasabah), [
+                'no_rekening' => '99999',
                 'nama' => 'Tidak Boleh',
-                'kelas' => 'X-1',
-                'alamat' => 'Jl. Test',
-                'no_hp' => '0812',
+                'angkatan' => '41',
+                'program_studi' => 'Akuntansi',
             ])
             ->assertForbidden();
     }
@@ -150,12 +155,16 @@ class NasabahTest extends TestCase
         $this->actingAs($supervisor)->get(route('nasabah.index'))->assertForbidden();
     }
 
-    public function test_nasabah_list_can_be_searched_by_name_or_account_number(): void
+    public function test_nasabah_list_can_be_searched_by_name_account_number_or_study_program(): void
     {
         $cs = User::factory()->create(['role' => User::ROLE_CS]);
-        $target = Nasabah::factory()->create(['nama' => 'Siti Aminah']);
+        $target = Nasabah::factory()->create([
+            'nama' => 'Siti Aminah',
+            'angkatan' => '41',
+            'program_studi' => 'Akuntansi',
+        ]);
         $target->rekening()->create([
-            'no_rekening' => 'REK00999',
+            'no_rekening' => '10435',
             'saldo' => '0.00',
             'status' => Rekening::STATUS_AKTIF,
         ]);
@@ -168,8 +177,13 @@ class NasabahTest extends TestCase
             ->assertDontSee('Orang Lain');
 
         $this->actingAs($cs)
-            ->get(route('nasabah.index', ['q' => 'REK00999']))
+            ->get(route('nasabah.index', ['q' => '10435']))
             ->assertOk()
-            ->assertSee('REK00999');
+            ->assertSee('10435');
+
+        $this->actingAs($cs)
+            ->get(route('nasabah.index', ['q' => 'Akuntansi']))
+            ->assertOk()
+            ->assertSee('Siti Aminah');
     }
 }

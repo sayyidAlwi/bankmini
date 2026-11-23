@@ -9,7 +9,7 @@
         <div class="panel__header">
             <div>
                 <h2 class="panel__title">{{ $nasabah->nama }}</h2>
-                <p class="panel__subtitle">{{ $nasabah->kode_nasabah }} &middot; {{ $nasabah->kelas }}</p>
+                <p class="panel__subtitle">{{ $nasabah->angkatan }} &middot; {{ $nasabah->program_studi }}</p>
             </div>
 
             <div class="toolbar">
@@ -34,24 +34,26 @@
         <div class="panel__body">
             <dl class="detail-list">
                 <div>
-                    <dt>Kode Nasabah</dt>
-                    <dd>{{ $nasabah->kode_nasabah }}</dd>
+                    <dt>Account Number</dt>
+                    <dd>
+                        @forelse ($nasabah->rekening as $rekening)
+                            {{ $rekening->no_rekening }}@if (! $loop->last), @endif
+                        @empty
+                            &mdash;
+                        @endforelse
+                    </dd>
                 </div>
                 <div>
-                    <dt>Nama</dt>
+                    <dt>Customer</dt>
                     <dd>{{ $nasabah->nama }}</dd>
                 </div>
                 <div>
-                    <dt>Kelas</dt>
-                    <dd>{{ $nasabah->kelas }}</dd>
+                    <dt>Generation</dt>
+                    <dd>{{ $nasabah->angkatan }}</dd>
                 </div>
                 <div>
-                    <dt>Nomor HP</dt>
-                    <dd>{{ $nasabah->no_hp }}</dd>
-                </div>
-                <div>
-                    <dt>Alamat</dt>
-                    <dd>{{ $nasabah->alamat }}</dd>
+                    <dt>Study Program</dt>
+                    <dd>{{ $nasabah->program_studi }}</dd>
                 </div>
                 <div>
                     <dt>Total Saldo</dt>

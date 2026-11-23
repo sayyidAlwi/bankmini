@@ -1,0 +1,44 @@
+# Contoh konfigurasi Nginx untuk VPS.
+# Ganti domain, path proyek, dan socket PHP-FPM sesuai server.
+#
+# Simpan sebagai /etc/nginx/sites-available/bankmini lalu aktifkan dengan
+# ln -s /etc/nginx/sites-available/bankmini /etc/nginx/sites-enabled/bankmini
+# dan jalankan: nginx -t && systemctl reload nginx
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name bankmini.sekolah.sch.id;
+
+    # Arahkan document root ke folder public Laravel, bukan root proyek.
+    root /var/www/bankmini/public;
+    index index.php;
+
+    charset utf-8;
+    client_max_body_size 8M;
+
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location = /favicon.ico { access_log off; log_not_found off; }
+    location = /robots.txt  { access_log off; log_not_found off; }
+
+    location ~ \.php$ {
+        include fastcgi_params;
+        fastcgi_pass unix:/run/php/php8.4-fpm.sock;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_hide_header X-Powered-By;
+    }
+
+    # Jangan pernah menyajikan file tersembunyi seperti .env.
+    location ~ /\.(?!well-known).* {
+        deny all;
+    }
+}
+
+# Setelah SSL terpasang (mis. certbot), tambahkan server block HTTPS
+# dan arahkan HTTP ke HTTPS.

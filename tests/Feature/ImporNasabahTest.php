@@ -37,7 +37,7 @@ class ImporNasabahTest extends TestCase
 
     public function test_only_admin_can_access_the_import_feature(): void
     {
-        $path = $this->buatXlsx($this->contohBaris());
+        $path = $this->buatXlsx($this->contohSheets());
 
         foreach ([
             User::ROLE_TELLER,
@@ -69,7 +69,7 @@ class ImporNasabahTest extends TestCase
 
     public function test_admin_can_preview_a_valid_excel_file(): void
     {
-        $path = $this->buatXlsx($this->contohBaris());
+        $path = $this->buatXlsx($this->contohSheets());
 
         $this->actingAs($this->admin)
             ->post(route('admin.impor.preview'), [
@@ -90,7 +90,7 @@ class ImporNasabahTest extends TestCase
     public function test_import_creates_nasabah_rekening_and_balanced_opening_journals(): void
     {
         $tanggal = now()->subDays(3)->toDateString();
-        $path = $this->buatXlsx($this->contohBaris());
+        $path = $this->buatXlsx($this->contohSheets());
 
         $this->actingAs($this->admin)
             ->post(route('admin.impor.preview'), [
@@ -112,8 +112,12 @@ class ImporNasabahTest extends TestCase
         $budi = Nasabah::query()->where('nama', 'Budi Santoso')->sole();
         $siti = Nasabah::query()->where('nama', 'Siti Aminah')->sole();
 
-        $this->assertSame('NSB'.str_pad((string) $budi->getKey(), 5, '0', STR_PAD_LEFT), $budi->kode_nasabah);
-        $this->assertSame('REK'.str_pad((string) $budi->rekening()->sole()->getKey(), 5, '0', STR_PAD_LEFT), $budi->rekening()->sole()->no_rekening);
+        $this->assertSame('Budi Santoso', $budi->nama);
+        $this->assertSame('2025', $budi->angkatan);
+        $this->assertSame('Akuntansi', $budi->program_studi);
+        $this->assertSame('Manajemen Perkantoran', $siti->program_studi);
+        $this->assertSame('10435', $budi->rekening()->sole()->no_rekening);
+        $this->assertSame('10436', $siti->rekening()->sole()->no_rekening);
 
         $this->assertSame('50000.00', $budi->rekening()->sole()->saldo);
         $this->assertSame('125000.50', $siti->rekening()->sole()->saldo);
@@ -144,11 +148,13 @@ class ImporNasabahTest extends TestCase
         $this->assertSame('180000.50', bcadd((string) Rekening::query()->sum('saldo'), '0', 2));
     }
 
-    public function test_existing_codes_are_preserved_when_provided(): void
+    public function test_existing_account_numbers_are_preserved_when_provided(): void
     {
         $path = $this->buatXlsx([
-            ['kode_nasabah', 'nama', 'kelas', 'alamat', 'no_hp', 'saldo_awal'],
-            ['SISWA-001', 'Nasabah Lama', 'XII-4', 'Jl. Lama', '081200000001', 10000],
+            'DKV 2025' => [
+                ['NO', 'NIS', 'NAMA', 'SALDO AWAL'],
+                [1, '10435', 'Nasabah Lama', 10000],
+            ],
         ]);
 
         $this->actingAs($this->admin)
@@ -162,17 +168,113 @@ class ImporNasabahTest extends TestCase
 
         $nasabah = Nasabah::query()->sole();
 
-        $this->assertSame('SISWA-001', $nasabah->kode_nasabah);
+        $this->assertSame('10435', $nasabah->rekening()->sole()->no_rekening);
+        $this->assertSame('2025', $nasabah->angkatan);
+        $this->assertSame('Desain Komunikasi Visual', $nasabah->program_studi);
         $this->assertSame('10000.00', $nasabah->rekening()->sole()->saldo);
+    }
+
+    public function test_blank_opening_balance_defaults_to_zero(): void
+    {
+        $path = $this->buatXlsx([
+            'AKL 2025' => [
+                ['NO', 'NIS', 'NAMA', 'SALDO AWAL'],
+                [1, '10002', 'Tanpa Saldo', ''],
+            ],
+        ]);
+
+        $this->actingAs($this->admin)
+            ->post(route('admin.impor.preview'), [
+                'file' => $this->unggah($path),
+                'tanggal' => now()->toDateString(),
+            ])
+            ->assertOk()
+            ->assertViewHas('hasil', fn (array $hasil) => $hasil['ada_kesalahan'] === false
+                && $hasil['rows'][0]['angkatan'] === '2025'
+                && $hasil['rows'][0]['program_studi'] === 'Akuntansi'
+                && $hasil['rows'][0]['saldo'] === '0.00');
+
+        $this->actingAs($this->admin)->post(route('admin.impor.store'))->assertRedirect(route('nasabah.index'));
+
+        $nasabah = Nasabah::query()->sole();
+
+        $this->assertSame('0.00', $nasabah->rekening()->sole()->saldo);
+        $this->assertSame(0, Transaksi::query()->count());
+        $this->assertSame(0, JurnalUmum::query()->count());
+    }
+
+    public function test_sheet_name_without_angkatan_is_rejected(): void
+    {
+        $path = $this->buatXlsx([
+            'AKL' => [
+                ['NO', 'NIS', 'NAMA', 'SALDO AWAL'],
+                [1, '10003', 'Tanpa Tahun', 0],
+            ],
+        ]);
+
+        $this->actingAs($this->admin)
+            ->post(route('admin.impor.preview'), [
+                'file' => $this->unggah($path),
+                'tanggal' => now()->toDateString(),
+            ])
+            ->assertRedirect()
+            ->assertSessionHasErrors('file');
+
+        $this->assertSame(0, Nasabah::query()->count());
+    }
+
+    public function test_header_row_may_be_preceded_by_title_rows(): void
+    {
+        $path = $this->buatXlsx([
+            'AKL' => [
+                [2025],
+                ['AKL'],
+                ['NO', 'NIS', 'NAMA', 'SALDO AWAL'],
+                [1, '10005', 'Dengan Baris Judul', ''],
+            ],
+        ]);
+
+        $this->actingAs($this->admin)
+            ->post(route('admin.impor.preview'), [
+                'file' => $this->unggah($path, 'data-nasabah.xlsx'),
+                'tanggal' => now()->toDateString(),
+            ])
+            ->assertOk()
+            ->assertViewHas('hasil', fn (array $hasil) => $hasil['ada_kesalahan'] === false
+                && $hasil['rows'][0]['no_rekening'] === '10005'
+                && $hasil['rows'][0]['angkatan'] === '2025'
+                && $hasil['rows'][0]['program_studi'] === 'Akuntansi');
+    }
+
+    public function test_sheet_name_can_omit_the_year_when_the_file_name_has_it(): void
+    {
+        $path = $this->buatXlsx([
+            'AKL' => [
+                ['NO', 'NIS', 'NAMA', 'SALDO AWAL'],
+                [1, '10004', 'Dari Nama File', ''],
+            ],
+        ]);
+
+        $this->actingAs($this->admin)
+            ->post(route('admin.impor.preview'), [
+                'file' => $this->unggah($path, 'NAMA NASABAH ANGKATAN 2025.xlsx'),
+                'tanggal' => now()->toDateString(),
+            ])
+            ->assertOk()
+            ->assertViewHas('hasil', fn (array $hasil) => $hasil['ada_kesalahan'] === false
+                && $hasil['rows'][0]['angkatan'] === '2025'
+                && $hasil['rows'][0]['program_studi'] === 'Akuntansi');
     }
 
     public function test_preview_reports_row_errors_without_saving_anything(): void
     {
         $path = $this->buatXlsx([
-            ['nama', 'kelas', 'alamat', 'no_hp', 'saldo_awal', 'kode_nasabah'],
-            ['', 'X-1', 'Jl. A', '0812', 10000, ''],
-            ['Valid Satu', 'X-1', 'Jl. B', '0813', -500, 'DUP-1'],
-            ['Valid Dua', 'X-1', 'Jl. C', '0814', 10000, 'DUP-1'],
+            'AKL 2025' => [
+                ['NO', 'NIS', 'NAMA', 'SALDO AWAL'],
+                [1, '', '', 10000],
+                [2, 'DUP-1', 'Valid Satu', -500],
+                [3, 'DUP-1', 'Valid Dua', 10000],
+            ],
         ]);
 
         $response = $this->actingAs($this->admin)
@@ -183,6 +285,7 @@ class ImporNasabahTest extends TestCase
             ->assertOk()
             ->assertViewHas('hasil', fn (array $hasil) => $hasil['ada_kesalahan'] === true);
 
+        $response->assertSee('NIS (account number) wajib diisi.');
         $response->assertSee('Nama wajib diisi.');
         $response->assertSee('Saldo awal harus berupa angka');
         $response->assertSee('muncul lebih dari sekali');
@@ -197,13 +300,20 @@ class ImporNasabahTest extends TestCase
         $this->assertSame(0, Transaksi::query()->count());
     }
 
-    public function test_codes_already_in_the_database_are_rejected(): void
+    public function test_account_numbers_already_in_the_database_are_rejected(): void
     {
-        Nasabah::factory()->create(['kode_nasabah' => 'NSB00001']);
+        $nasabah = Nasabah::factory()->create();
+        $nasabah->rekening()->create([
+            'no_rekening' => '10435',
+            'saldo' => '0.00',
+            'status' => Rekening::STATUS_AKTIF,
+        ]);
 
         $path = $this->buatXlsx([
-            ['kode_nasabah', 'nama', 'kelas', 'alamat', 'no_hp', 'saldo_awal'],
-            ['NSB00001', 'Duplikat', 'X-1', 'Jl. A', '0812', 10000],
+            'AKL 2025' => [
+                ['NO', 'NIS', 'NAMA', 'SALDO AWAL'],
+                [1, '10435', 'Duplikat', 10000],
+            ],
         ]);
 
         $this->actingAs($this->admin)
@@ -218,8 +328,10 @@ class ImporNasabahTest extends TestCase
     public function test_missing_required_columns_are_rejected(): void
     {
         $path = $this->buatXlsx([
-            ['nama', 'kelas'],
-            ['Tanpa Saldo', 'X-1'],
+            'AKL 2025' => [
+                ['NO', 'NAMA'],
+                [1, 'Tanpa NIS'],
+            ],
         ]);
 
         $this->actingAs($this->admin)
@@ -261,7 +373,7 @@ class ImporNasabahTest extends TestCase
 
     public function test_cancel_discards_the_uploaded_file(): void
     {
-        $path = $this->buatXlsx($this->contohBaris());
+        $path = $this->buatXlsx($this->contohSheets());
 
         $this->actingAs($this->admin)
             ->post(route('admin.impor.preview'), [
@@ -285,7 +397,7 @@ class ImporNasabahTest extends TestCase
 
     public function test_future_opening_date_is_rejected(): void
     {
-        $path = $this->buatXlsx($this->contohBaris());
+        $path = $this->buatXlsx($this->contohSheets());
 
         $this->actingAs($this->admin)
             ->post(route('admin.impor.preview'), [
@@ -311,22 +423,27 @@ class ImporNasabahTest extends TestCase
     }
 
     /**
-     * @return array<int, array<int, mixed>>
+     * @return array<string, array<int, array<int, mixed>>>
      */
-    private function contohBaris(): array
+    private function contohSheets(): array
     {
         return [
-            ['kode_nasabah', 'nama', 'kelas', 'alamat', 'no_hp', 'saldo_awal', 'status'],
-            ['', 'Budi Santoso', 'X-1', 'Jl. Merdeka No. 1', '081234567890', 50000, 'aktif'],
-            ['', 'Siti Aminah', 'XI-2', 'Jl. Sudirman No. 5', '081298765432', 125000.5, 'aktif'],
-            ['', 'Nasabah Nonaktif', 'XII-3', 'Jl. Gatot Subroto', '081277778888', 5000, 'nonaktif'],
+            'AKL 2025' => [
+                ['NO', 'NIS', 'NAMA', 'SALDO AWAL'],
+                [1, '10435', 'Budi Santoso', 50000],
+            ],
+            'MP 2025' => [
+                ['NO', 'NIS', 'NAMA', 'SALDO AWAL', 'STATUS'],
+                [1, '10436', 'Siti Aminah', 125000.5],
+                [2, '10437', 'Nasabah Nonaktif', 5000, 'nonaktif'],
+            ],
         ];
     }
 
     /**
-     * @param  array<int, array<int, mixed>>  $rows
+     * @param  array<string, array<int, array<int, mixed>>>  $sheets
      */
-    private function buatXlsx(array $rows): string
+    private function buatXlsx(array $sheets): string
     {
         Storage::disk('local')->makeDirectory('imports');
 
@@ -335,8 +452,20 @@ class ImporNasabahTest extends TestCase
         $writer = new Writer;
         $writer->openToFile($path);
 
-        foreach ($rows as $row) {
-            $writer->addRow(Row::fromValues($row));
+        $pertama = true;
+
+        foreach ($sheets as $namaSheet => $rows) {
+            $sheet = $pertama
+                ? $writer->getCurrentSheet()
+                : $writer->addNewSheetAndMakeItCurrent();
+
+            $pertama = false;
+
+            $sheet->setName($namaSheet);
+
+            foreach ($rows as $row) {
+                $writer->addRow(Row::fromValues($row));
+            }
         }
 
         $writer->close();

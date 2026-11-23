@@ -56,5 +56,8 @@ class DatabaseSeeder extends Seeder
         }
 
         $this->call(AkunSeeder::class);
+
+        // Data percobaan (buku tabungan contoh). Hapus baris ini bila tidak dipakai.
+        $this->call(DataContohSeeder::class);
     }
 }

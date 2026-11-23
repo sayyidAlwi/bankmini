@@ -20,6 +20,7 @@ class ImporNasabahController extends Controller
 
         return view('impor.create', [
             'namaFile' => $request->session()->get('impor.nama'),
+            'programStudi' => ImporNasabahService::PRODI,
         ]);
     }
 
@@ -41,7 +42,7 @@ class ImporNasabahController extends Controller
             Storage::disk('local')->delete($sebelumnya);
         }
 
-        $hasil = $this->impor->parse(Storage::disk('local')->path($path));
+        $hasil = $this->impor->parse(Storage::disk('local')->path($path), $file->getClientOriginalName());
 
         if ($hasil['error'] !== null) {
             Storage::disk('local')->delete($path);
@@ -68,6 +69,7 @@ class ImporNasabahController extends Controller
     {
         $path = (string) $request->session()->get('impor.path', '');
         $tanggal = (string) $request->session()->get('impor.tanggal', '');
+        $namaFile = (string) $request->session()->get('impor.nama', '');
 
         if ($path === '' || $tanggal === '' || ! Storage::disk('local')->exists($path)) {
             return redirect()
@@ -75,7 +77,7 @@ class ImporNasabahController extends Controller
                 ->withErrors(['file' => 'Sesi impor sudah berakhir. Silakan unggah ulang file.']);
         }
 
-        $hasil = $this->impor->parse(Storage::disk('local')->path($path));
+        $hasil = $this->impor->parse(Storage::disk('local')->path($path), $namaFile);
 
         if ($hasil['error'] !== null || $hasil['ada_kesalahan']) {
             return redirect()

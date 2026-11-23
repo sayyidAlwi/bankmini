@@ -1,0 +1,36 @@
+# =============================================================================
+# Pengaman tambahan untuk hosting.
+#
+# Idealnya document root domain diarahkan langsung ke folder public/.
+# File ini menjadi jaring pengaman bila document root justru menunjuk ke root
+# proyek: permintaan diteruskan ke public/ dan file sensitif tetap diblokir.
+#
+# File ini tidak dipakai oleh `php artisan serve` maupun server bawaan Laravel.
+# =============================================================================
+
+<IfModule mod_autoindex.c>
+    Options -Indexes
+</IfModule>
+
+# Blokir file sensitif agar tidak bisa diunduh lewat browser.
+<FilesMatch "(^\.env|^\.env\..*|^composer\.(json|lock)$|^artisan$|^phpunit\.xml$|^package(-lock)?\.json$|^vite\.config\.js$)">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Jangan izinkan akses langsung ke folder internal Laravel.
+    RewriteRule ^(app|bootstrap|config|database|deploy|resources|routes|storage|tests|vendor)(/|$) - [F,L]
+
+    # Biarkan validasi SSL (Let's Encrypt) dan akses /public/ apa adanya.
+    RewriteCond %{REQUEST_URI} !/\.well-known/
+    RewriteCond %{REQUEST_URI} !/public/
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>

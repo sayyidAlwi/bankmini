@@ -1,6 +1,7 @@
 @php
     $nasabah = $nasabah ?? null;
     $editing = $nasabah !== null;
+    $noRekening = old('no_rekening', $nasabah?->rekening->first()?->no_rekening);
 @endphp
 
 <form method="POST" action="{{ $editing ? route('nasabah.update', $nasabah) : route('nasabah.store') }}">
@@ -11,7 +12,24 @@
 
     <div class="form-grid">
         <div class="field">
-            <label class="label" for="nama">Nama Nasabah</label>
+            <label class="label" for="no_rekening">Account Number (NISN)</label>
+            <input
+                id="no_rekening"
+                name="no_rekening"
+                type="text"
+                class="input @error('no_rekening') is-invalid @enderror"
+                value="{{ $noRekening }}"
+                maxlength="30"
+                placeholder="Contoh: 10435"
+                required
+            >
+            @error('no_rekening')
+                <span class="error-text">{{ $message }}</span>
+            @enderror
+        </div>
+
+        <div class="field">
+            <label class="label" for="nama">Customer</label>
             <input
                 id="nama"
                 name="nama"
@@ -19,6 +37,7 @@
                 class="input @error('nama') is-invalid @enderror"
                 value="{{ old('nama', $nasabah?->nama) }}"
                 maxlength="100"
+                placeholder="Nama lengkap nasabah"
                 required
             >
             @error('nama')
@@ -27,47 +46,33 @@
         </div>
 
         <div class="field">
-            <label class="label" for="kelas">Kelas</label>
+            <label class="label" for="angkatan">Generation (Angkatan)</label>
             <input
-                id="kelas"
-                name="kelas"
+                id="angkatan"
+                name="angkatan"
                 type="text"
-                class="input @error('kelas') is-invalid @enderror"
-                value="{{ old('kelas', $nasabah?->kelas) }}"
+                class="input @error('angkatan') is-invalid @enderror"
+                value="{{ old('angkatan', $nasabah?->angkatan) }}"
                 maxlength="30"
                 required
             >
-            @error('kelas')
+            @error('angkatan')
                 <span class="error-text">{{ $message }}</span>
             @enderror
         </div>
 
         <div class="field">
-            <label class="label" for="no_hp">Nomor HP</label>
+            <label class="label" for="program_studi">Study Program (Program Studi)</label>
             <input
-                id="no_hp"
-                name="no_hp"
+                id="program_studi"
+                name="program_studi"
                 type="text"
-                class="input @error('no_hp') is-invalid @enderror"
-                value="{{ old('no_hp', $nasabah?->no_hp) }}"
-                maxlength="20"
+                class="input @error('program_studi') is-invalid @enderror"
+                value="{{ old('program_studi', $nasabah?->program_studi) }}"
+                maxlength="100"
                 required
             >
-            @error('no_hp')
-                <span class="error-text">{{ $message }}</span>
-            @enderror
-        </div>
-
-        <div class="field field--full">
-            <label class="label" for="alamat">Alamat</label>
-            <textarea
-                id="alamat"
-                name="alamat"
-                class="input @error('alamat') is-invalid @enderror"
-                maxlength="500"
-                required
-            >{{ old('alamat', $nasabah?->alamat) }}</textarea>
-            @error('alamat')
+            @error('program_studi')
                 <span class="error-text">{{ $message }}</span>
             @enderror
         </div>

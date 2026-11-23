@@ -1,0 +1,8 @@
+# Salin file ini ke public_html/ bersama index.php (jembatan shared hosting).
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ index.php [L]
+</IfModule>
