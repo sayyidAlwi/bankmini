@@ -1,27 +1,51 @@
 *.log
 .DS_Store
+Thumbs.db
+
+# Environment dan rahasia — jangan pernah di-commit.
 .env
-.env.backup
-.env.production
-.phpactor.json
-.phpunit.result.cache
+.env.*
+!.env.example
+!.env.production.example
+.envrc
+/auth.json
+*.pem
+*.p12
+*.pfx
+/.htpasswd
+# Dump/backup database di root proyek (schema resmi tetap dilacak).
+/*.sql
+/*.sql.gz
+/*.dump
+
+# Editor / IDE
 /.codex
-/.cursor/
+/.cursor
+/.fleet
+/.history
 /.idea
 /.nova
-/.phpunit.cache
 /.vscode
 /.zed
-/auth.json
+
+# Alat PHP
+.phpactor.json
+.phpunit.result.cache
+/.phpunit.cache
+_ide_helper.php
+_ide_helper_models.php
+.phpstorm.meta.php
+
+# Dependensi dan hasil build
 /node_modules
+/vendor
 /public/build
 /public/fonts-manifest.dev.json
 /public/hot
 /public/storage
+
+# Runtime dan storage
 /storage/*.key
 /storage/pail
-/vendor
-_ide_helper.php
 Homestead.json
 Homestead.yaml
-Thumbs.db
